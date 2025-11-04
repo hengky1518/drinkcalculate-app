@@ -16,6 +16,7 @@ class _MyAppState extends State<MyApp> {
   int peopleCount = 0; // 선택된 인원 수
   bool allFilled = false; // 모든 이름 입력창이 채워졌는지 여부
   List<TextEditingController> controllers = []; // 이름 입력 컨트롤러들
+  List<FocusNode> focusNodes = []; // ✅ 각 TextField의 포커스 관리용 노드들
 
   // ✅ 인원 선택 모달 (정중앙 + 슬라이더)
   void showCountSelector(BuildContext ctx) async {
@@ -45,9 +46,7 @@ class _MyAppState extends State<MyApp> {
               children: [
                 const Text(
                   '인원을 선택하세요',
-                  style: TextStyle(
-                    fontSize: 18,
-                  ),
+                  style: TextStyle(fontSize: 18),
                 ),
                 const SizedBox(height: 16),
                 Expanded(
@@ -60,7 +59,7 @@ class _MyAppState extends State<MyApp> {
                       tempCount = index + 1;
                     },
                     children: List.generate(
-                      99, // 최대 10명까지
+                      99, // 최대 인원
                           (index) => Center(
                         child: Text(
                           '${index + 1}',
@@ -101,6 +100,7 @@ class _MyAppState extends State<MyApp> {
         peopleCount = result;
         controllers =
             List.generate(peopleCount, (_) => TextEditingController());
+        focusNodes = List.generate(peopleCount, (_) => FocusNode()); // ✅ 추가
       });
     }
   }
@@ -110,6 +110,18 @@ class _MyAppState extends State<MyApp> {
     setState(() {
       allFilled = controllers.every((c) => c.text.trim().isNotEmpty);
     });
+  }
+
+  @override
+  void dispose() {
+    // ✅ FocusNode 및 Controller 메모리 정리
+    for (final controller in controllers) {
+      controller.dispose();
+    }
+    for (final node in focusNodes) {
+      node.dispose();
+    }
+    super.dispose();
   }
 
   @override
@@ -158,13 +170,13 @@ class _MyAppState extends State<MyApp> {
                   child: Text(
                     peopleCount == 0
                         ? '인원을 선택 해 주세요'
-                        : '$peopleCount',
+                        : '$peopleCount명',
                   ),
                 ),
               ),
               const SizedBox(height: 12),
               // 👇 이름 입력창 리스트
-              Expanded(
+              Flexible( // ✅ Expanded → Flexible로 변경
                 child: ListView.builder(
                   itemCount: peopleCount,
                   itemBuilder: (context, index) {
@@ -172,6 +184,18 @@ class _MyAppState extends State<MyApp> {
                       padding: const EdgeInsets.symmetric(vertical: 6),
                       child: TextField(
                         controller: controllers[index],
+                        focusNode: focusNodes[index], // ✅ 포커스 연결
+                        textInputAction: index < peopleCount - 1
+                            ? TextInputAction.next
+                            : TextInputAction.done,
+                        onSubmitted: (_) {
+                          if (index < peopleCount - 1) {
+                            FocusScope.of(context)
+                                .requestFocus(focusNodes[index + 1]); // 다음칸 이동
+                          } else {
+                            FocusScope.of(context).unfocus(); // 마지막이면 닫기
+                          }
+                        },
                         onChanged: (_) => checkAllFilled(),
                         decoration: InputDecoration(
                           hintText: '이름을 입력 해 주세요',
@@ -194,7 +218,10 @@ class _MyAppState extends State<MyApp> {
                   backgroundColor: const Color(0xFF3BA776),
                   minimumSize: const Size(double.infinity, 48),
                 ),
-                child: const Text('시작하기',style:TextStyle(color:Colors.white) ),
+                child: const Text(
+                  '시작하기',
+                  style: TextStyle(color: Colors.white),
+                ),
               ),
             ],
           ),
