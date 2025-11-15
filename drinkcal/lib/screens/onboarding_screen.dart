@@ -1,6 +1,6 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
-import 'input_screen.dart'; // 대소문자 통일 (권장)
+import 'input_screen.dart';
 
 class OnboardingScreen extends StatefulWidget {
   const OnboardingScreen({super.key});
@@ -15,6 +15,29 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   List<TextEditingController> controllers = [];
   List<FocusNode> focusNodes = [];
 
+  // ----------------------------------------------------------
+  // 🔥 동명이인 자동 처리 함수
+  // ----------------------------------------------------------
+  List<String> makeUniqueNames(List<String> names) {
+    List<String> unique = [];
+
+    for (var name in names) {
+      if (!unique.contains(name)) {
+        unique.add(name);
+      } else {
+        int count = 2;
+        while (unique.contains("$name($count)")) {
+          count++;
+        }
+        unique.add("$name($count)");
+      }
+    }
+    return unique;
+  }
+
+  // ----------------------------------------------------------
+  // 인원 선택 모달
+  // ----------------------------------------------------------
   void showCountSelector(BuildContext ctx) async {
     int tempCount = peopleCount == 0 ? 1 : peopleCount;
 
@@ -91,6 +114,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     }
   }
 
+  // ----------------------------------------------------------
+  // 모든 이름이 채워졌는지 확인
+  // ----------------------------------------------------------
   void checkAllFilled() {
     setState(() {
       allFilled = controllers.every((c) => c.text.trim().isNotEmpty);
@@ -104,6 +130,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     super.dispose();
   }
 
+  // ----------------------------------------------------------
+  // UI
+  // ----------------------------------------------------------
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -128,6 +157,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           children: [
             Image.asset('assets/onboarding.png'),
             const SizedBox(height: 12),
+
+            // 인원 선택 버튼
             Builder(
               builder: (ctx) => ElevatedButton(
                 onPressed: () => showCountSelector(ctx),
@@ -146,7 +177,10 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                 ),
               ),
             ),
+
             const SizedBox(height: 12),
+
+            // 이름 입력창
             Flexible(
               child: ListView.builder(
                 itemCount: peopleCount,
@@ -180,17 +214,25 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                 ),
               ),
             ),
+
+            // 시작하기 버튼
             ElevatedButton(
               onPressed: allFilled
                   ? () {
-                final names =
+                // 원본 이름 리스트
+                final rawNames =
                 controllers.map((c) => c.text.trim()).toList();
+
+                // 🔥 동명이인 자동 처리
+                final uniqueNames = makeUniqueNames(rawNames);
+
+                // InputScreen 이동
                 Navigator.push(
                   context,
                   MaterialPageRoute(
                     builder: (_) => InputScreen(
                       peopleCount: peopleCount,
-                      participantNames: names,
+                      participantNames: List<String>.from(uniqueNames),
                     ),
                   ),
                 );
@@ -200,8 +242,10 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                 backgroundColor: const Color(0xFF3BA776),
                 minimumSize: const Size(double.infinity, 48),
               ),
-              child: const Text('시작하기',
-                  style: TextStyle(color: Colors.white)),
+              child: const Text(
+                '시작하기',
+                style: TextStyle(color: Colors.white),
+              ),
             ),
           ],
         ),
