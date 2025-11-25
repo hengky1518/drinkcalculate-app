@@ -2,18 +2,17 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 
-// ---------------------------------------------------------------
-// 숫자 → 억/만 단위 한글 변환 (A 방식: 억/만만 한글, 나머지 숫자 그대로)
-// ---------------------------------------------------------------
+import 'Result_screen.dart';
+
+
 String numberToKoreanSimple(int number) {
   if (number <= 0) return "";
 
-  int eok = number ~/ 100000000;          // 억
-  int man = (number % 100000000) ~/ 10000; // 만
-  int rest = number % 10000;              // 하위 자릿수는 숫자 그대로
+  int eok = number ~/ 100000000;
+  int man = (number % 100000000) ~/ 10000;
+  int rest = number % 10000;
 
   List<String> parts = [];
-
   if (eok > 0) parts.add("${eok}억");
   if (man > 0) parts.add("${man}만");
   if (rest > 0) parts.add("$rest");
@@ -21,9 +20,7 @@ String numberToKoreanSimple(int number) {
   return parts.join(" ") + "원";
 }
 
-// ---------------------------------------------------------------
-// 회차별 상태 묶음
-// ---------------------------------------------------------------
+
 class RoundState {
   final int roundNumber;
 
@@ -54,15 +51,15 @@ class RoundState {
   });
 }
 
-// ---------------------------------------------------------------
-// 천 단위 콤마 formatter
-// ---------------------------------------------------------------
+
 class _ThousandsFormatter extends TextInputFormatter {
   final NumberFormat _formatter = NumberFormat('#,###');
 
   @override
   TextEditingValue formatEditUpdate(
-      TextEditingValue oldValue, TextEditingValue newValue) {
+      TextEditingValue oldValue,
+      TextEditingValue newValue,
+      ) {
     if (newValue.text.isEmpty) return newValue;
     final number = int.tryParse(newValue.text.replaceAll(",", ""));
     if (number == null) return newValue;
@@ -75,9 +72,24 @@ class _ThousandsFormatter extends TextInputFormatter {
   }
 }
 
-// ---------------------------------------------------------------
-// 메인 InputScreen
-// ---------------------------------------------------------------
+
+class _Account {
+  String name;
+  int amount;
+  _Account({required this.name, required this.amount});
+}
+
+class _TransferInternal {
+  final String from;
+  final String to;
+  final int amount;
+  _TransferInternal({
+    required this.from,
+    required this.to,
+    required this.amount,
+  });
+}
+
 class InputScreen extends StatefulWidget {
   final int peopleCount;
   final List<String> participantNames;
@@ -92,9 +104,7 @@ class InputScreen extends StatefulWidget {
   State<InputScreen> createState() => _InputScreenState();
 }
 
-// ---------------------------------------------------------------
-// STATE
-// ---------------------------------------------------------------
+
 class _InputScreenState extends State<InputScreen> {
   List<int> rounds = [];
   final Map<int, RoundState> roundStates = {};
@@ -106,7 +116,7 @@ class _InputScreenState extends State<InputScreen> {
     _addNewRound(1);
   }
 
-  // 새 회차 생성
+
   void _addNewRound(int roundNumber) {
     rounds.add(roundNumber);
     roundStates[roundNumber] = _createRoundState(roundNumber);
@@ -138,22 +148,19 @@ class _InputScreenState extends State<InputScreen> {
     );
   }
 
-  // 라운드 확장 토글
   void toggleParticipantView(int r) {
     setState(() {
       isExpandedMap[r] = !(isExpandedMap[r] ?? false);
     });
   }
 
-  // 문자열 → 숫자 파싱
   int _parseAmount(String text) =>
       int.tryParse(text.replaceAll(",", "")) ?? 0;
 
-  // 숫자 → 콤마 문자열
   String _fmt(int n) =>
       n == 0 ? "" : NumberFormat('#,###').format(n);
 
-  // 결제자 금액 자동 업데이트
+
   void _updatePayerAutoAmounts(RoundState s) {
     final total = _parseAmount(s.totalCostController.text);
 
@@ -188,7 +195,6 @@ class _InputScreenState extends State<InputScreen> {
     }
   }
 
-  // 총 금액 변경
   void _onTotalCostChanged(RoundState s) {
     setState(() {
       final total = _parseAmount(s.totalCostController.text);
@@ -197,7 +203,6 @@ class _InputScreenState extends State<InputScreen> {
     });
   }
 
-  // 주류 금액 변경
   void _onAlcoholCostChanged(RoundState s) {
     setState(() {
       final alcohol = _parseAmount(s.alcoholCostController.text);
@@ -205,7 +210,6 @@ class _InputScreenState extends State<InputScreen> {
     });
   }
 
-  // 결제자 토글
   void _onPayerToggle(String name, RoundState s) {
     setState(() {
       final now = s.isPayer[name] ?? false;
@@ -219,6 +223,7 @@ class _InputScreenState extends State<InputScreen> {
       _updatePayerAutoAmounts(s);
     });
   }
+
 
   void _onPayerAmountChanged(String name, RoundState s) {
     final amount = _parseAmount(s.payerControllers[name]!.text);
@@ -243,7 +248,6 @@ class _InputScreenState extends State<InputScreen> {
     }
   }
 
-  // 인원 추가
   void _showAddParticipantDialog() {
     final c = TextEditingController();
 
@@ -267,6 +271,7 @@ class _InputScreenState extends State<InputScreen> {
 
               String name = raw;
 
+
               if (widget.participantNames.contains(name)) {
                 int count = 2;
                 while (widget.participantNames.contains("$name($count)")) {
@@ -277,6 +282,7 @@ class _InputScreenState extends State<InputScreen> {
 
               setState(() {
                 widget.participantNames.add(name);
+
                 for (final s in roundStates.values) {
                   s.isExcluded[name] = false;
                   s.isNonDrinker[name] = false;
@@ -295,11 +301,139 @@ class _InputScreenState extends State<InputScreen> {
     );
   }
 
-  // -----------------------------------------------------------
-  // UI
-  // -----------------------------------------------------------
+  bool _validateRound(RoundState s) {
+    final total = _parseAmount(s.totalCostController.text);
+
+    final payers =
+    s.isPayer.entries.where((e) => e.value).map((e) => e.key).toList();
+
+    if (payers.isEmpty) return false; // 결제자 한 명도 없으면 불가
+
+    int sum = 0;
+    for (final name in payers) {
+      sum += _parseAmount(s.payerControllers[name]!.text);
+    }
+
+    return sum == total;
+  }
+
+  bool _validateAllRounds() {
+    for (final r in rounds) {
+      final s = roundStates[r]!;
+      if (!_validateRound(s)) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+
+  List<Map<String, dynamic>> _calculateTransfers() {
+
+    final names = List<String>.from(widget.participantNames);
+
+    final Map<String, int> net = {for (final n in names) n: 0};
+
+    for (final r in rounds) {
+      final s = roundStates[r]!;
+
+      final total = _parseAmount(s.totalCostController.text);
+      final alcohol = _parseAmount(s.alcoholCostController.text);
+      final food = (total - alcohol).clamp(0, total);
+
+      final participants =
+      names.where((n) => !(s.isExcluded[n] ?? false)).toList();
+      if (participants.isEmpty) continue;
+
+      final drinkers =
+      participants.where((n) => !(s.isNonDrinker[n] ?? false)).toList();
+
+      final nPart = participants.length;
+      final nDrink = drinkers.length;
+
+      final foodPer = nPart > 0 ? food ~/ nPart : 0;
+      int foodRemain = nPart > 0 ? food % nPart : 0;
+
+      final alcoholPer = nDrink > 0 ? alcohol ~/ nDrink : 0;
+      int alcoholRemain = nDrink > 0 ? alcohol % nDrink : 0;
+
+      final Map<String, int> shouldPay = {
+        for (final n in participants) n: foodPer
+      };
+
+      for (int i = 0; i < foodRemain; i++) {
+        shouldPay[participants[i]] = (shouldPay[participants[i]] ?? 0) + 1;
+      }
+
+      for (final d in drinkers) {
+        shouldPay[d] = (shouldPay[d] ?? 0) + alcoholPer;
+      }
+      for (int i = 0; i < alcoholRemain && i < drinkers.length; i++) {
+        shouldPay[drinkers[i]] = (shouldPay[drinkers[i]] ?? 0) + 1;
+      }
+
+      for (final n in participants) {
+        final paid =
+        (s.isPayer[n] ?? false) ? _parseAmount(s.payerControllers[n]!.text) : 0;
+
+        final want = shouldPay[n] ?? 0;
+        net[n] = (net[n] ?? 0) + (paid - want);
+      }
+    }
+
+    final List<_Account> receivers = [];
+    final List<_Account> payers = [];
+
+    for (final n in names) {
+      final v = net[n] ?? 0;
+      if (v > 0) {
+        receivers.add(_Account(name: n, amount: v));
+      } else if (v < 0) {
+        payers.add(_Account(name: n, amount: -v));
+      }
+    }
+
+    final List<_TransferInternal> transfers = [];
+    int ri = 0;
+
+    for (final payer in payers) {
+      int toPay = payer.amount;
+
+      while (toPay > 0 && ri < receivers.length) {
+        final recv = receivers[ri];
+
+        if (recv.amount <= 0) {
+          ri++;
+          continue;
+        }
+
+        final pay = toPay < recv.amount ? toPay : recv.amount;
+
+        transfers.add(
+          _TransferInternal(from: payer.name, to: recv.name, amount: pay),
+        );
+
+        toPay -= pay;
+        recv.amount -= pay;
+
+        if (recv.amount == 0) ri++;
+      }
+    }
+
+    return transfers
+        .map((t) => {
+      'from': t.from,
+      'to': t.to,
+      'amount': t.amount,
+    })
+        .toList();
+  }
+
+
   @override
   Widget build(BuildContext context) {
+    final isValid = _validateAllRounds();
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('짠한정산'),
@@ -312,7 +446,18 @@ class _InputScreenState extends State<InputScreen> {
           child: SizedBox(
             height: 55,
             child: ElevatedButton(
-              onPressed: () {},
+              onPressed: isValid
+                  ? () {
+                final transfers = _calculateTransfers();
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) =>
+                        ResultScreen(transfers: transfers),
+                  ),
+                );
+              }
+                  : null,
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFF3BA776),
                 shape: RoundedRectangleBorder(
@@ -351,9 +496,7 @@ class _InputScreenState extends State<InputScreen> {
     );
   }
 
-  // -----------------------------------------------------------
-  // 단일 라운드 UI
-  // -----------------------------------------------------------
+
   Widget _buildRoundForm(int r, RoundState s) {
     final expand = isExpandedMap[r] ?? false;
 
@@ -366,7 +509,6 @@ class _InputScreenState extends State<InputScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // 회차 제목
             Padding(
               padding: const EdgeInsets.only(left: 8, bottom: 8),
               child: Text(
@@ -379,7 +521,6 @@ class _InputScreenState extends State<InputScreen> {
               ),
             ),
 
-            // 참석자 영역
             Row(
               children: [
                 const Icon(Icons.person, color: Colors.black54),
@@ -411,12 +552,10 @@ class _InputScreenState extends State<InputScreen> {
 
             const SizedBox(height: 12),
 
-            // 금액 입력
             _buildAmountSection(s),
 
             const SizedBox(height: 14),
 
-            // 테이블
             _buildPaymentTable(s),
           ],
         ),
@@ -424,9 +563,7 @@ class _InputScreenState extends State<InputScreen> {
     );
   }
 
-  // -----------------------------------------------------------
-  // 금액 입력 섹션
-  // -----------------------------------------------------------
+
   Widget _buildAmountSection(RoundState s) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -473,7 +610,8 @@ class _InputScreenState extends State<InputScreen> {
       children: [
         TextField(
           controller: controller,
-          keyboardType: const TextInputType.numberWithOptions(decimal: false),
+          keyboardType:
+          const TextInputType.numberWithOptions(decimal: false),
           inputFormatters: [
             FilteringTextInputFormatter.digitsOnly,
             _ThousandsFormatter(),
@@ -506,9 +644,7 @@ class _InputScreenState extends State<InputScreen> {
     );
   }
 
-  // -----------------------------------------------------------
-  // 테이블
-  // -----------------------------------------------------------
+
   Widget _buildPaymentTable(RoundState s) {
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
@@ -571,11 +707,9 @@ class _InputScreenState extends State<InputScreen> {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // 이름
           SizedBox(width: 120, child: _buildNameChip(name)),
           const SizedBox(width: 10),
 
-          // 주류X
           SizedBox(
             width: 50,
             height: 50,
@@ -586,7 +720,6 @@ class _InputScreenState extends State<InputScreen> {
           ),
           const SizedBox(width: 10),
 
-          // 결제자
           SizedBox(
             width: 50,
             height: 50,
@@ -597,7 +730,6 @@ class _InputScreenState extends State<InputScreen> {
           ),
           const SizedBox(width: 10),
 
-          // 금액 입력
           SizedBox(
             width: 120,
             child: Visibility(
@@ -610,8 +742,8 @@ class _InputScreenState extends State<InputScreen> {
                 children: [
                   TextField(
                     controller: controller,
-                    keyboardType:
-                    const TextInputType.numberWithOptions(decimal: false),
+                    keyboardType: const TextInputType.numberWithOptions(
+                        decimal: false),
                     inputFormatters: [
                       FilteringTextInputFormatter.digitsOnly,
                       _ThousandsFormatter(),
@@ -649,9 +781,7 @@ class _InputScreenState extends State<InputScreen> {
     );
   }
 
-  // -----------------------------------------------------------
-  // 이름 박스
-  // -----------------------------------------------------------
+
   Widget _buildNameChip(String name) {
     return Container(
       alignment: Alignment.center,
@@ -669,9 +799,7 @@ class _InputScreenState extends State<InputScreen> {
     );
   }
 
-  // -----------------------------------------------------------
-  // 토글박스
-  // -----------------------------------------------------------
+
   Widget _buildToggleBox(bool isChecked, ValueChanged<bool> onChanged) {
     return GestureDetector(
       onTap: () => onChanged(!isChecked),
@@ -679,7 +807,8 @@ class _InputScreenState extends State<InputScreen> {
         width: 50,
         height: 50,
         decoration: BoxDecoration(
-          color: isChecked ? const Color(0xFF22C55E) : const Color(0xFFDFF3E6),
+          color:
+          isChecked ? const Color(0xFF22C55E) : const Color(0xFFDFF3E6),
           borderRadius: BorderRadius.circular(10),
           border: isChecked ? null : Border.all(color: Colors.black12),
         ),
@@ -692,9 +821,7 @@ class _InputScreenState extends State<InputScreen> {
     );
   }
 
-  // -----------------------------------------------------------
-  // 칩들 (참석자)
-  // -----------------------------------------------------------
+
   Widget _buildChipRow(RoundState s) {
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,

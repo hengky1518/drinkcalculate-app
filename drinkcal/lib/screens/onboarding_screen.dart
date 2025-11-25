@@ -15,9 +15,6 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   List<TextEditingController> controllers = [];
   List<FocusNode> focusNodes = [];
 
-  // ----------------------------------------------------------
-  // 🔥 동명이인 자동 처리 함수
-  // ----------------------------------------------------------
   List<String> makeUniqueNames(List<String> names) {
     List<String> unique = [];
 
@@ -35,9 +32,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     return unique;
   }
 
-  // ----------------------------------------------------------
-  // 인원 선택 모달
-  // ----------------------------------------------------------
+
   void showCountSelector(BuildContext ctx) async {
     int tempCount = peopleCount == 0 ? 1 : peopleCount;
 
@@ -114,9 +109,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     }
   }
 
-  // ----------------------------------------------------------
-  // 모든 이름이 채워졌는지 확인
-  // ----------------------------------------------------------
+
   void checkAllFilled() {
     setState(() {
       allFilled = controllers.every((c) => c.text.trim().isNotEmpty);
@@ -130,9 +123,6 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     super.dispose();
   }
 
-  // ----------------------------------------------------------
-  // UI
-  // ----------------------------------------------------------
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -158,7 +148,6 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             Image.asset('assets/onboarding.png'),
             const SizedBox(height: 12),
 
-            // 인원 선택 버튼
             Builder(
               builder: (ctx) => ElevatedButton(
                 onPressed: () => showCountSelector(ctx),
@@ -180,7 +169,6 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
             const SizedBox(height: 12),
 
-            // 이름 입력창
             Flexible(
               child: ListView.builder(
                 itemCount: peopleCount,
@@ -215,18 +203,14 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
               ),
             ),
 
-            // 시작하기 버튼
             ElevatedButton(
               onPressed: allFilled
                   ? () {
-                // 원본 이름 리스트
                 final rawNames =
                 controllers.map((c) => c.text.trim()).toList();
 
-                // 🔥 동명이인 자동 처리
                 final uniqueNames = makeUniqueNames(rawNames);
 
-                // InputScreen 이동
                 Navigator.push(
                   context,
                   MaterialPageRoute(
